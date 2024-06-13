@@ -1,0 +1,100 @@
+---
+# Meta Data definitions for EAs/Tags
+metadata:
+  names:
+    - Region
+    - Country
+    - Location
+    - Department
+    - Device_Type
+    - Org_Compartments
+
+  prefixes: 
+    - test
+    - zone
+    - bank
+    - demo
+    - infoblox
+
+  # Region: Country: - Cities
+  # EMEA: UK: - LON
+  location_data:
+    EMEA:
+      UK:
+       - LHR
+      FR:
+       - CDG
+      NL:
+       - AMS
+      DK:
+       - CPH
+      SE:
+       - ARN
+      DE:
+       - FRA
+       - HAM
+      AE:
+       - AUH
+       - DXB
+      SA:
+       - JNB
+    AMS:
+      US:
+        - NYC
+        - IAD
+        - BOS
+        - SJC
+        - SEA
+        - HOU
+        - DAL
+        - CHI
+      MX:
+        - MEX
+        - GDL
+      CA:
+        - YYZ
+        - YUL
+        - YVR
+      BR:
+        - GIG
+    APAC:
+      AU: 
+        - SYD
+        - PER
+      NZ: 
+        - AKL
+      JP:
+        - HND
+      IN:
+        - DEL
+        - BLR
+  
+  departments:
+    - HR
+    - Engineering
+    - Sales
+    - IT
+    - Marketing
+    - Trading
+    - Support
+    - Staff
+    - Student
+    - IoT
+    - Branch
+    - Guest
+
+  deice_types: 
+    - Router
+    - Desktop
+    - VoIP
+    - Switch
+    - Firewall
+    - Server
+    - Other
+  
+  org_compartments:
+    - Red
+    - Blue
+    - Black
+    - Green
+    - Yellow

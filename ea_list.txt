@@ -1,0 +1,13 @@
+Region
+Country
+Location
+Datacentre
+SecurityZone
+Department
+Billing
+VLAN
+Tenant
+Service
+Context-state
+Primary Server
+Backup Server
