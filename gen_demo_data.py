@@ -104,12 +104,16 @@ class METADATA:
 
         self.net_header = ( 'header-network,address*,netmask*,disabled,enable_discovery'
             ',EA-Region,EAInherited-Region,EA-Country,EAInherited-Country'
-            ',EA-Location,EAInherited-Location,EA-Datacentre'
-            ',EA-Department,EA-Billing,EA-SecurityZone,EA-VLAN,EA-Tenant ID' )
+            ',EA-Location,EAInherited-Location,EA-Department,EA-Billing')
 
-        self.host_header = 'header-hostrecord,addresses,configure_for_dns,fqdn,EA-DeviceType'
         self.zone_header = 'header-authzone,fqdn,zone_format,ns_group,comment'
+        self.host_header = 'header-hostrecord,addresses,configure_for_dns,fqdn,EA-DeviceType'
         self.cname_header = 'header-CnameRecord,fqdn,view,canonical_name,comment,EA-DeviceType'
+        self.headers = { 'containers': self.container_header,
+                         'networks': self.net_header,
+                         'zones': self.zone_header,
+                         'hosts': self.host_header,
+                         'cnames': self.cname_header }
 
         return
 
@@ -192,12 +196,20 @@ class DEMODATA(METADATA):
 
     def __init__(self, 
                  metadata:str = 'metadata.yaml',
-                 postfix:str = 'demo'):
+                 postfix:str = 'demo',
+                 include_countries:bool = False,
+                 include_locations:bool = False,
+                 include_networks:bool = False,
+                 include_dhcp:bool = False):
         '''
         '''
         super().__init__(metadata)
         self.postfix = postfix
         self.csv_sets:dict = {}
+        self.include_countries:bool = include_countries
+        self.include_locations:bool = include_locations
+        self.include_networks:bool = include_networks
+        self.include_dhcp:bool = include_dhcp
 
         return
     
@@ -238,39 +250,62 @@ class DEMODATA(METADATA):
         return handler
     
     
-    def output_csv(self, to_file:bool = False):
+    def output_csv(self,
+                   object_type:str = 'all',
+                   to_file:bool = False):
         '''
         '''
-        # Output each section
-        for object in self.csv_sets.keys():
+        if object_type == 'all':
+            # Output each section
+            for object in self.csv_sets.keys():
+                # Set output mechanism
+                if to_file:
+                    output = self.open_csv(filename=f'{object}_{self.postfix}.csv')
+                else:
+                    output = sys.stdout
+
+                # Output header for object
+                header = self.headers.get(object)
+                print(header, file=output)
+                # Ouput lines
+                for line in self.csv_sets[object]:
+                    print(line, file=output)
+        elif object_type in self.csv_sets.keys():
             # Set output mechanism
             if to_file:
-                output = self.open_csv(filename=f'{object}_{self.postfix}.csv')
+                output = self.open_csv(filename=f'{object_type}_{self.postfix}.csv')
             else:
                 output = sys.stdout
 
+            # Output header for object
+            header = self.headers.get(object_type)
+            print(header, file=output)
             # Ouput lines
-            for line in self.csv_sets[object]:
+            for line in self.csv_sets[object_type]:
                 print(line, file=output)
+        
+        else:
+            logging.error(f'No data generated for object type: {object_type}')
         
         return
 
-    def gen_containers(self, 
-                       base:str = '10.40.0.0/14', 
-                       include_countries:bool = False,
-                       include_locations:bool = False):
+
+    def get_header_for_obj(self, object_type:str=''):
+        '''
+        '''
+        # Match object type and return header
+        return self.headers.get(object_type)
+
+
+    def gen_networks(self, 
+                       base:str = '10.40.0.0/14'):
         '''
         '''
         container_csv:list = []
-        dhcp_ranges:list = []
         regions = self.regions()
         base_block = ipaddress.ip_network(base)
         next_prefix = int(base_block.prefixlen + math.sqrt(len(regions)) + 1)
         sub_blocks = list(base_block.subnets(new_prefix=next_prefix))
-
-
-        # Ouput container header
-        container_csv.append(self.container_header)
 
         # Create Top Level container
         container_csv.append(f'networkcontainer,{base_block.network_address.exploded},'
@@ -281,15 +316,15 @@ class DEMODATA(METADATA):
             index = 0
             for region in regions:
                 subnet = ipaddress.ip_network(sub_blocks[index])
-                container_csv.append(f'networkcontainer,{subnet.exploded},,,,default,,{region},'
-                    f'OVERRIDE,,,,,,,No,,')
+                container_csv.append(f'networkcontainer,{subnet.network_address.exploded},'
+                                     f'{subnet.prefixlen},,,default,,'
+                                     f'{region},' f'OVERRIDE,,,,,,,No,,')
 
                 # Add countries if included
-                if include_countries:
+                if self.include_countries:
                     container_csv.extend(self.country_containers(subnet=subnet, 
-                                                                region=region,
-                                                                include_locations=include_locations))
-                elif include_locations:
+                                                                region=region))
+                elif self.include_locations:
                     logging.warning(f'To create city containers for {region} include_country=True is required')
 
                 index += 1
@@ -299,8 +334,6 @@ class DEMODATA(METADATA):
 
         if container_csv:
             self.csv_sets.update({ 'containers': container_csv})
-        if dhcp_ranges:
-            self.csv_sets.update({ 'dhcp_ranges': dhcp_ranges})
 
 
         return self.csv_sets
@@ -308,8 +341,7 @@ class DEMODATA(METADATA):
 
     def country_containers(self, 
                            subnet:ipaddress.ip_network, 
-                           region:str,
-                           include_locations:bool = False):
+                           region:str):
         '''
         '''
         container_csv:list = []
@@ -322,12 +354,13 @@ class DEMODATA(METADATA):
             index = 0
             for country in countries:
                 sub = ipaddress.ip_network(country_blocks[index])
-                container_csv.append(f'networkcontainer,{sub.exploded},,,,default,,,'
-                    f'INHERIT,{country},OVERRIDE,,,,,No,,')
+                container_csv.append(f'networkcontainer,{sub.network_address.exploded}'
+                                     f'{sub.prefixlen},,,,default,,,'
+                                     f'INHERIT,{country},OVERRIDE,,,,,No,,')
                 # Add locations if included
-                if include_locations:
+                if self.include_locations:
                     container_csv.extend(self.location_containers(subnet=sub, 
-                                                                  country=country)
+                                                                  country=country))
                 index += 1
 
         else:
@@ -352,8 +385,12 @@ class DEMODATA(METADATA):
             index = 0
             for location in locations:
                 sub = ipaddress.ip_network(blocks[index])
-                container_csv.append(f'networkcontainer,{sub.exploded},,,,default,,,'
+                container_csv.append(f'networkcontainer,{sub.network_address.exploded}'
+                                     f'{sub.prefixlen},,,,default,,,'
                     f'INHERIT,,INHERIT,{location},OVERRIDE,,,No,,')
+                # Add networks if included
+                if self.include_networks:
+                    self.create_networks(subnet=sub, location=country)
                 index += 1
 
         else:
@@ -363,7 +400,70 @@ class DEMODATA(METADATA):
         return container_csv
 
 
+    def create_networks(self, 
+                        subnet:ipaddress.ip_network,
+                        location:str):
+        '''
+        '''
+        networks:list = []
+        dhcp_csv:list = []
+        departments = self.departments()
 
+        # Gen prefix
+        prefix = int(subnet.prefixlen + math.sqrt(len(departments))+2)
+        subnets = list(subnet.subnets(new_prefix=prefix))
+        if len(departments) < len(subnets):
+            index = 0
+            for dept in departments:
+                sub = ipaddress.ip_network(subnets[index])
+                networks.append(f'network,{sub.network_address.exploded},'
+                                f'{sub.netmask.exploded}',FALSE,FALSE,,'
+                                f'INHERIT,,INHERIT,,INHERIT,{dept},OVERIDE')
+                # Add networks if included
+                if self.include_dhcp:
+                    dhcp_csv.append(self.dhcp_range(subnet=sub))
+                index += 1
+
+        else:
+            logging.error(f'subnet {subnet} cannot be subnetted in'
+                        f'to {len(self.departments)} countries.')
+        
+        # Update csv_sets
+        if networks:
+            if self.csv_sets.get('networks'):
+                self.csv_sets['networks'].extend(networks)
+            else:
+                self.csv_sets.update({'networks': networks })
+
+        if dhcp_csv:
+            if self.csv_sets.get('dhcp_ranges'):
+                self.csv_sets['dhcp_ranges'].extend(dhcp_csv)
+            else:
+                self.csv_sets.update({'dhcp_ranges': dhcp_csv })
+
+        return networks
+        
+
+    def dhcp_range(self, 
+                    subnet:ipaddress.ip_network):
+        '''
+        '''
+        net_size = subnet.num_addresses
+        range_size = int(net_size / 2)
+        broadcast = subnet.broadcast_address
+        start_ip = str(broadcast - (range_size + 1))
+        end_ip = str(broadcast - 1)
+        gw = str(subnet.network_address + 1)
+        logging.info("Creating Range start: {}, end: {}".format(start_ip, end_ip))
+
+        range = f''
+        
+        if self.csv_sets.get('dhcp_ranges'):
+            self.csv_sets['dhcp_ranges'].extend(range)
+        else:
+            self.csv_sets.update({'dhcp_ranges': range })
+
+        return networks
 
 ### Functions ###
 
@@ -390,96 +490,11 @@ def parseargs():
 def gen_eas():
     eas = collections.defaultdict()
     extattrs = ['Region', 'Country', 'Location', 'Datacentre', 'Department', 'Billing', 'SecurityZone', 'VLAN']
-    #regions = ['EMEA', 'Americas', 'APAC', 'Turkey']
-    regions = ['EMEA', 'Americas', 'APAC']
-    countries = {
-        'EMEA' : ['Germany', 'Greece', 'Luxembourg', 'Saudi Arabia',
-        'South Africa', 'Malta', 'Monaco', 'Switzerland', 'Turkey',
-        'UAE', 'United Kingdom'],
-        'Americas' : ['Argentina', 'Canada', 'Mexico', 'United States'],
-        'APAC' : ['Australia', 'China', 'Hong Kong', 'India', 'Japan', 'Malaysia', 'Singapore'],
-        'Turkey':['Turkey']
-        }
-    locations = {
-        'Germany':['Dusseldorf','Leverkusen'],
-        'Greece':['Athens'],
-        'Luxembourg':['Luxembourg'],
-        'Saudi Arabia':['Jeddah','Riyadh'],
-        'South Africa':['Johannesburg'],
-        'Malta':['Figura','Qormi'],
-        'Monaco':['Monaco'],
-        'Switzerland':['Geneva','Plan Les Quates'],
-        'Turkey':['Istanbul','Izmir'],
-        'UAE':['Dubai'],
-        'United Kingdom':['London','Slough','Barnsley','Wakefield'],
-        'Argentina':['Buenos Aires'],
-        'Canada':['Toronto','Vancouver'],
-        'Mexico':['Mexico City'],
-        'United States':['Bermuda','New York','Chicago'],
-        'Australia':['Melbourne','Sydney'],
-        'China':['Foshan','Shanghai'],
-        'Hong Kong':['Hong Kong'],
-        'India':['Bangalore','Hyderabad','Kolkatta','Mumbai'],
-        'Japan':['Tokyo','Osaka'],
-        'Malaysia':['Cyberjaya','Kuala Lumpur'],
-        'Singapore':['Singapore']
-        }
-
-    datacentres = {
-        'Buenos Aires':['Buenos Aires DC1','Buenos Aires DC2'],
-        'Melbourne':['Melbourne DC1'],
-        'Sydney':['Sydney DC2'],
-        'Toronto':['Toronto DC2'],
-        'Vancouver':['Vancouver DC1'],
-        'Foshan':['Foshan DC1'],
-        'Shanghai':['Shanghai DC2'],
-        'Dusseldorf':['Dusseldorf DC1'],
-        'Leverkusen':['Leverkusen DC2'],
-        'Athens':['Athens DC1','Athens DC2'],
-        'Hong Kong':['Hong Kong DC1','Hong Kong DC2'],
-        'Bangalore':['Bangalore DC1'],
-        'Hyderabad':['Hyderabad DC2'],
-        'Kolkatta':['Kolkatta DC3'],
-        'Mumbai':['Mumbai DC4'],
-        'Osaka':['Osaka DC2'],
-        'Tokyo':['Tokyo DC1'],
-        'Luxembourg':['Luxembourg DC1 (PB)'],
-        'Cyberjaya':['Cyberjaya DC2'],
-        'Kuala Lumpur':['Kuala Lumpur DC1'],
-        'Figura':['Figura DC1'],
-        'Qormi':['Qormi DC1'],
-        'Mexico City':['Chapulepec DC1'],
-        'Mexico City':['Toluca DC2'],
-        'Monaco':['Monaco DC1','Monaco DC2'],
-        'Jeddah':['Jeddah DC1'],
-        'Riyadh':['Riyadh DC2'],
-        'Singapore':['Singapore DC1','Singapore DC2'],
-        'Johannesburg':['Johannesburg DC1','Johannesburg DC2'],
-        'Geneva':['Geneva DC1'],
-        'Plan Les Quates':['Plan Les Quates DC2'],
-        'Istanbul':['Istanbul DC1'],
-        'Izmir':['Izmir DC2'],
-        'Dubai':['Dubai DC1','Dubai DC2'],
-        'London':['London DC1 (IB)'],
-        'Slough':['Slough DC2 (IB)'],
-        'Barnsley':['South Yorkshire DC1'],
-        'Wakefield':['Wakefield DC2'],
-        'Bermuda':['Bermuda DC1','Bermuda DC2'],
-        'New York':['New Jersey DC1 (IB)'],
-        'New York':['New York DC2 (IB)'],
-        'Chicago':['Northlake DC2'],
-        'Chicago':['Vernon Hills DC1']
-        }
-    departments = ['Human Resources','Private Banking','Trading','Infrastructure','Office Services','Networks','Branches']
-    billing = ['Yes','No']
-    securityzones = ['Internet','Zone1','Internet DMZ','Internal','Internal DMZ','Red','Blue']
-
 
     # Select Random EAs
     eas['Region'] = random.choice(regions)
     eas['Country'] = random.choice(countries[eas['Region']])
     eas['Location'] = random.choice(locations[eas['Country']])
-    eas['Datacentre'] = random.choice(datacentres[eas['Location']])
     eas['Department'] = random.choice(departments)
     eas['Billing'] = random.choice(billing)
     eas['SecurityZone'] = random.choice(securityzones)
@@ -548,7 +563,6 @@ def gen_hosts():
             # Gen host data
             for o4 in range(iterations):
                 dev = random.choice(devices)
-                print('hostrecord,{0}.{1}.{2}.{3},TRUE,host-{0}-{1}-{2}-{3}.{4},{5}'.format(baseoct,o2,o3,o4,zone,dev))
     
     return
 
