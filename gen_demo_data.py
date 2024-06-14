@@ -96,21 +96,22 @@ class METADATA:
     def def_headers(self):
         '''
         '''
-        self.container_header = ( 'header-networkcontainer,address*,netmask*,discovery_exclusion_range'
-            ',discovery_member,enable_discovery,network_view,zone_associations'
-            ',EA-Region,EAInherited-Region,EA-Country'
+        self.container_header = ( 'header-networkcontainer,address*,netmask*,'
+            'network_view,EA-Region,EAInherited-Region,EA-Country'
             ',EAInherited-Country,EA-Location,EAInherited-Location'
             ',EA-Department,EA-Billing,EA-SecurityZone,EA-VLAN' )
 
-        self.net_header = ( 'header-network,address*,netmask*,disabled,enable_discovery'
+        self.net_header = ( 'header-network,address*,netmask*,routers,disabled,enable_discovery'
             ',EA-Region,EAInherited-Region,EA-Country,EAInherited-Country'
             ',EA-Location,EAInherited-Location,EA-Department,EA-Billing')
 
+        self.dhcp_range_header = 'header-DhcpRange,start_address,end_address'
         self.zone_header = 'header-authzone,fqdn,zone_format,ns_group,comment'
         self.host_header = 'header-hostrecord,addresses,configure_for_dns,fqdn,EA-DeviceType'
         self.cname_header = 'header-CnameRecord,fqdn,view,canonical_name,comment,EA-DeviceType'
         self.headers = { 'containers': self.container_header,
                          'networks': self.net_header,
+                         'dhcp_ranges': self.dhcp_range_header,
                          'zones': self.zone_header,
                          'hosts': self.host_header,
                          'cnames': self.cname_header }
@@ -309,7 +310,7 @@ class DEMODATA(METADATA):
 
         # Create Top Level container
         container_csv.append(f'networkcontainer,{base_block.network_address.exploded},'
-              f'{base_block.prefixlen},,,,default,,,,,,,,,,No,,')
+              f'{base_block.prefixlen},default,,,,,,,,No,,')
 
         # Create block per Region
         if len(regions) < len(sub_blocks):
@@ -317,8 +318,8 @@ class DEMODATA(METADATA):
             for region in regions:
                 subnet = ipaddress.ip_network(sub_blocks[index])
                 container_csv.append(f'networkcontainer,{subnet.network_address.exploded},'
-                                     f'{subnet.prefixlen},,,default,,'
-                                     f'{region},' f'OVERRIDE,,,,,,,No,,')
+                                     f'{subnet.prefixlen},default,'
+                                     f'{region},OVERRIDE,,,,,,No,,')
 
                 # Add countries if included
                 if self.include_countries:
@@ -354,9 +355,9 @@ class DEMODATA(METADATA):
             index = 0
             for country in countries:
                 sub = ipaddress.ip_network(country_blocks[index])
-                container_csv.append(f'networkcontainer,{sub.network_address.exploded}'
-                                     f'{sub.prefixlen},,,,default,,,'
-                                     f'INHERIT,{country},OVERRIDE,,,,,No,,')
+                container_csv.append(f'networkcontainer,{sub.network_address.exploded},'
+                                     f'{sub.prefixlen},default,,'
+                                     f'INHERIT,{country},OVERRIDE,,,,No,,')
                 # Add locations if included
                 if self.include_locations:
                     container_csv.extend(self.location_containers(subnet=sub, 
@@ -385,9 +386,9 @@ class DEMODATA(METADATA):
             index = 0
             for location in locations:
                 sub = ipaddress.ip_network(blocks[index])
-                container_csv.append(f'networkcontainer,{sub.network_address.exploded}'
-                                     f'{sub.prefixlen},,,,default,,,'
-                    f'INHERIT,,INHERIT,{location},OVERRIDE,,,No,,')
+                container_csv.append(f'networkcontainer,{sub.network_address.exploded},'
+                                     f'{sub.prefixlen},default,,'
+                    f'INHERIT,,INHERIT,{location},OVERRIDE,,No,,')
                 # Add networks if included
                 if self.include_networks:
                     self.create_networks(subnet=sub, location=country)
@@ -411,14 +412,18 @@ class DEMODATA(METADATA):
 
         # Gen prefix
         prefix = int(subnet.prefixlen + math.sqrt(len(departments))+2)
+        # Don't create networks larger that /24
+        if prefix < 24:
+            prefix = 24
         subnets = list(subnet.subnets(new_prefix=prefix))
         if len(departments) < len(subnets):
             index = 0
             for dept in departments:
                 sub = ipaddress.ip_network(subnets[index])
+                gw = str(sub.network_address + 1)
                 networks.append(f'network,{sub.network_address.exploded},'
-                                f'{sub.netmask.exploded}',FALSE,FALSE,,'
-                                f'INHERIT,,INHERIT,,INHERIT,{dept},OVERIDE')
+                                f'{sub.netmask.exploded},{gw},FALSE,FALSE,,'
+                                f'INHERIT,,INHERIT,,INHERIT,{dept},')
                 # Add networks if included
                 if self.include_dhcp:
                     dhcp_csv.append(self.dhcp_range(subnet=sub))
@@ -435,35 +440,33 @@ class DEMODATA(METADATA):
             else:
                 self.csv_sets.update({'networks': networks })
 
-        if dhcp_csv:
-            if self.csv_sets.get('dhcp_ranges'):
-                self.csv_sets['dhcp_ranges'].extend(dhcp_csv)
-            else:
-                self.csv_sets.update({'dhcp_ranges': dhcp_csv })
-
         return networks
         
 
     def dhcp_range(self, 
-                    subnet:ipaddress.ip_network):
+                   subnet:ipaddress.ip_network):
         '''
         '''
         net_size = subnet.num_addresses
-        range_size = int(net_size / 2)
+        if net_size > 254:
+            range_size = 253
+        elif net_size > 15:
+            range_size = int(net_size / 2)
+        else:
+            range_size = int(net_size)
         broadcast = subnet.broadcast_address
         start_ip = str(broadcast - (range_size + 1))
         end_ip = str(broadcast - 1)
-        gw = str(subnet.network_address + 1)
-        logging.info("Creating Range start: {}, end: {}".format(start_ip, end_ip))
+        logging.info(f"Creating Range start: {start_ip}, end: {end_ip}")
 
-        range = f''
+        range = f'DhcpRange,{start_ip},{end_ip}'
         
         if self.csv_sets.get('dhcp_ranges'):
-            self.csv_sets['dhcp_ranges'].extend(range)
+            self.csv_sets['dhcp_ranges'].extend([ range ])
         else:
-            self.csv_sets.update({'dhcp_ranges': range })
+            self.csv_sets.update({'dhcp_ranges': [ range ] })
 
-        return networks
+        return range
 
 ### Functions ###
 
