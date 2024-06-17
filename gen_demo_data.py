@@ -62,18 +62,10 @@ import yaml
 import argparse
 import ipaddress
 import random
-import collections
 
 ### Global Variables ###
 
-nets = 10
-baseoct = 12
-oct2 = 0
-oct3 = 0
-oct4 = 0
-subnet = 24
-mask = '255.255.255.0'
-
+# --- Classes ---
 
 class METADATA:
 
@@ -84,6 +76,7 @@ class METADATA:
             with open(cfg, 'r') as f:
                 data = yaml.safe_load(f)
                 self.metadata = data.get('metadata')
+                self.config = data.get('config')
         except FileNotFoundError:
             logging.error(f'Metadata file {cfg} not found')
             raise
@@ -112,7 +105,7 @@ class METADATA:
         self.headers = { 'containers': self.container_header,
                          'networks': self.net_header,
                          'dhcp_ranges': self.dhcp_range_header,
-                         'zones': self.zone_header,
+                         'auth_zones': self.zone_header,
                          'hosts': self.host_header,
                          'cnames': self.cname_header }
 
@@ -190,6 +183,46 @@ class METADATA:
         '''
         '''
         return self.metadata.get('org_compartments')
+
+
+    def dns_view(self):
+        '''
+        '''
+        return self.config.get('dns_view')
+
+
+    def auth_zones(self):
+        '''
+        '''
+        return self.config.get('auth_zones')
+
+
+    def cloud_providers(self):
+        '''
+        '''
+        return self.config.get('cloud_providers').keys()
+
+
+    def cloud_zones(self, cloud:str=''):
+        '''
+        '''
+        zones:list = []
+        cloud = cloud.casefold()
+
+        if cloud:
+            if cloud in self.cloud_providers():
+                zones = self.config['cloud_providers'][cloud].get('zones')
+            else:
+                logging.error(f'Cloud vendor {cloud} not found')
+        else:
+            if self.cloud_providers():
+                for c in self.cloud_providers():
+                    zones.extend(self.config['cloud_providers'][c].get('zones'))
+            else:
+                logging.error('No cloud_providers found')
+        
+        return zones
+            
 
 
 
@@ -446,6 +479,8 @@ class DEMODATA(METADATA):
     def dhcp_range(self, 
                    subnet:ipaddress.ip_network):
         '''
+        Generate DHCP Ranges
+    
         '''
         net_size = subnet.num_addresses
         if net_size > 254:
@@ -467,6 +502,30 @@ class DEMODATA(METADATA):
             self.csv_sets.update({'dhcp_ranges': [ range ] })
 
         return range
+
+
+    def gen_zones(self):
+        '''
+        '''
+        dns_view = self.dns_view()
+        zones = self.auth_zones()
+        lines:list = []
+
+        for z in zones:
+            lines.append(f'authzone,{z},FORWARD,{dns_view},demo@infoblox.com')
+        
+        if lines:
+            self.csv_sets.update = {'auth_zones': lines }
+
+        return lines
+    
+
+    def gen_hosts(self, 
+                  zone:str='infoblox.test', 
+                  dns_view:str='Internal DNS'):
+        '''
+        '''
+        return
 
 ### Functions ###
 

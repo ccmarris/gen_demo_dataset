@@ -1,4 +1,20 @@
 ---
+config:
+  dns_view: Internal DNS
+  auth_zones:
+    - infoblox.test
+  cloud_providers:
+    aws:
+      zones:
+        - aws.private
+    azure:
+      zones:
+        - azure.private
+    gcp:
+      zones:
+        - gcp.private
+
+  
 # Meta Data definitions for EAs/Tags
 metadata:
   names:
