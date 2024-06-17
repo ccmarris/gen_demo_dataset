@@ -191,6 +191,12 @@ class METADATA:
         return self.config.get('dns_view')
 
 
+    def name_server_gropu(self):
+        '''
+        '''
+        return self.config.get('nsg')
+
+
     def auth_zones(self):
         '''
         '''
@@ -508,11 +514,12 @@ class DEMODATA(METADATA):
         '''
         '''
         dns_view = self.dns_view()
+        nsg = self.name_server_group()
         zones = self.auth_zones()
         lines:list = []
 
         for z in zones:
-            lines.append(f'authzone,{z},FORWARD,{dns_view},demo@infoblox.com')
+            lines.append(f'authzone,{z},FORWARD,{dns_view},{nsg},demo@infoblox.com')
         
         if lines:
             self.csv_sets.update({'auth_zones': lines })

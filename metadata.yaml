@@ -1,6 +1,7 @@
 ---
 config:
   dns_view: Internal DNS
+  nsg: internal
   auth_zones:
     - infoblox.test
   cloud_providers:
