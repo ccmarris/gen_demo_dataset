@@ -99,7 +99,7 @@ class METADATA:
             ',EA-Location,EAInherited-Location,EA-Department,EA-Billing')
 
         self.dhcp_range_header = 'header-DhcpRange,start_address,end_address'
-        self.zone_header = 'header-authzone,fqdn,zone_format,ns_group,comment'
+        self.zone_header = 'header-authzone,fqdn,zone_format,view,ns_group,soa_email'
         self.host_header = 'header-hostrecord,addresses,configure_for_dns,fqdn,EA-DeviceType'
         self.cname_header = 'header-CnameRecord,fqdn,view,canonical_name,comment,EA-DeviceType'
         self.headers = { 'containers': self.container_header,
@@ -515,7 +515,7 @@ class DEMODATA(METADATA):
             lines.append(f'authzone,{z},FORWARD,{dns_view},demo@infoblox.com')
         
         if lines:
-            self.csv_sets.update = {'auth_zones': lines }
+            self.csv_sets.update({'auth_zones': lines })
 
         return lines
     
