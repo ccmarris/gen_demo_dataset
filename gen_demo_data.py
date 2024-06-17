@@ -337,6 +337,15 @@ class DEMODATA(METADATA):
         return self.headers.get(object_type)
 
 
+    def gen_data(self):
+        '''
+        '''
+        self.gen_networks()
+        self.gen_zones()
+        self.gen_hosts()
+        return
+    
+
     def gen_networks(self, 
                        base:str = '10.40.0.0/14'):
         '''
@@ -537,137 +546,47 @@ class DEMODATA(METADATA):
 ### Functions ###
 
 def parseargs():
-    """
-     Parse Arguments Using argparse
+    '''
+    Parse Arguments Using argparse
 
-        Returns arguments
-    """
-    parse = argparse.ArgumentParser(description='Infoblox CSV Import Generator')
+    Parameters:
+        None
 
-    #parse.add_argument('-o', '--output', type=str, help="CSV Output to <filename>")
-    #parse.add_argument('-s', '--silent', action='store_true', help="Silent mode")
-    parse.add_argument('-i', '--iterations', type=int, default=10, choices=range(1,256),
-            metavar="[1-255]", help="Number of containers/networks to create")
-    parse.add_argument('-b', '--base', type=int, default=10, choices=range(1,255),
-            metavar="[1-254]",help="IPv4 Base Octet")
-    parse.add_argument('-c', '--containers', action='store_true', help="Create network containers only")
-    parse.add_argument('-z', '--zone', type=str, default="local", help="Base zone")
+    Returns:
+        Returns parsed arguments
+    '''
+    description = 'NIOS Demo Data CSV Generator'
+    parse = argparse.ArgumentParser(description=description)
+    parse.add_argument('-c', '--config', type=str, default='metadata.yaml',
+                        help="Override config file")
+    parse.add_argument('-f', '--file', action='store_true',
+                        help='Output CSVs to file')
+    parse.add_argument('-o', '--object', type=str, default='all',
+                       help='Output specified object only')
+    parse.add_argument('-d', '--debug', action='store_true', 
+                        help="Enable debug messages")
 
     return parse.parse_args()
 
-"""
-def gen_eas():
-    eas = collections.defaultdict()
-    extattrs = ['Region', 'Country', 'Location', 'Datacentre', 'Department', 'Billing', 'SecurityZone', 'VLAN']
 
-    # Select Random EAs
-    eas['Region'] = random.choice(regions)
-    eas['Country'] = random.choice(countries[eas['Region']])
-    eas['Location'] = random.choice(locations[eas['Country']])
-    eas['Department'] = random.choice(departments)
-    eas['Billing'] = random.choice(billing)
-    eas['SecurityZone'] = random.choice(securityzones)
-    eas['VLAN'] = random.randint(100,4095)
+def main():
+    '''
+    Code logic
+    '''
 
-    return eas
-
+    # Parse Arguments
+    args = parseargs()
+    d = DEMODATA(include_countries=True, 
+                 include_locations=True, 
+                 include_networks=True, 
+                 include_dhcp=True)
+    d.gen_data()
+    d.output_csv(object_type=args.object, to_file=args.file)
 
 ### Main ###
+if __name__ == '__main__':
+    exitcode = main()
+    exit(exitcode)
+## End Main ###
 
-# Parse Arguments
-args = parseargs()
-baseoct = args.base
-nets = args.iterations
-containers_only = args.containers
-
-# Output container header
-print(cheader)
-# Output network header
-print(nheader)
-
-def gen_containers():
-    '''
-    '''
-    # Gen initial /8
-    subnet = 8
-    print('networkcontainer,{}.{}.{}.{},{},,,,default,,,,,,'
-            ',,,,No,,'.format(baseoct, oct2, oct3, oct4, subnet))
-
-    # Gen /16 containers
-    for o2 in range(nets):
-        subnet = 16
-        eas = gen_eas()
-        oct2 = o2
-        print('networkcontainer,{}.{}.{}.{},{},,,,default,,{},OVERRIDE,{},OVERRIDE,'
-            '{},OVERRIDE,{},,No,,'.format(baseoct, oct2, oct3, oct4, subnet,
-            eas['Region'],eas['Country'],eas['Location'],eas['Datacentre']))
-
-        if not containers_only:
-            # Gen /24 subnets
-            for o3 in range(nets):
-                oct3 = o3
-                print('network,{}.{}.{}.{},{},FALSE,FALSE,,INHERIT,'
-                    ',INHERIT,,INHERIT,,{},{},{},{},1011'.format(baseoct, oct2, oct3, oct4, mask,
-                    eas['Department'],eas['Billing'],eas['SecurityZone'],eas['VLAN']))
-
-    return
-                                
-
-
-def gen_hosts():
-    '''
-    '''
-    # Output host header
-    print(header)
-
-    # Iterate through second octet
-    for o2 in range(255):
-        #eas = gen_eas()
-        oct2 = o2
-
-        # Gen /24 subnets
-        for o3 in range(255):
-            oct3 = o3
-
-            # Gen host data
-            for o4 in range(iterations):
-                dev = random.choice(devices)
     
-    return
-
-def gen_zones():
-    '''
-    '''
-    # Output host header
-    print(zheader)
-
-    # Iterate
-    for n in range(iterations):
-        prefix = random.choice(prefixes)
-        print('authzone,{}-{}.{},FORWARD,internal,chris@infoblox.com'.format(prefix,n,zone))
-    
-    return
-
-
-def gen_cnames():
-    '''
-    '''
-    # Output host header
-    print(header)
-
-    # Iterate through second octet
-    for o2 in range(iterations):
-        #eas = gen_eas()
-        oct2 = o2
-
-        # Gen /24 subnets
-        for o3 in range(255):
-            oct3 = o3
-
-            # Gen host data
-            for o4 in range(iterations):
-                dev = random.choice(devices)
-                print('CnameRecord,host-{0}-{1}-{2}-{3}.{4},default,host-{3}.test.poc,"Import Test",{5}'.format(baseoct,o2,o3,o4,zone,dev))
-    
-    return
-"""
