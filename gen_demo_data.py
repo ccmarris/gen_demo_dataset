@@ -191,7 +191,7 @@ class METADATA:
         return self.config.get('dns_view')
 
 
-    def name_server_gropu(self):
+    def name_server_group(self):
         '''
         '''
         return self.config.get('nsg')
