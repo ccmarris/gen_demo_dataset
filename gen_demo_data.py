@@ -569,6 +569,28 @@ def parseargs():
     return parse.parse_args()
 
 
+def setup_logging(debug):
+    '''
+     Set up logging
+
+     Parameters:
+        debug (bool): True or False.
+
+     Returns:
+        None.
+
+    '''
+    # Set debug level
+    if debug:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s: %(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s %(levelname)s: %(message)s')
+
+    return
+
+
 def main():
     '''
     Code logic
@@ -576,12 +598,17 @@ def main():
 
     # Parse Arguments
     args = parseargs()
+    setup_logging(args.debug)
+
     d = DEMODATA(include_countries=True, 
                  include_locations=True, 
                  include_networks=True, 
                  include_dhcp=True)
     d.gen_data()
     d.output_csv(object_type=args.object, to_file=args.file)
+
+    return
+
 
 ### Main ###
 if __name__ == '__main__':
