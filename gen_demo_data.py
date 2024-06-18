@@ -100,12 +100,15 @@ class METADATA:
             'EA-Location,EAInherited-Location,EA-Department,EA-Billing')
 
         self.dhcp_range_header = 'header-DhcpRange,start_address,end_address'
+        self.nsg_header = ( 'header-nsgroup,group_name,grid_primaries,grid_secondaries,'
+                            'is_grid_default' )
         self.zone_header = 'header-authzone,fqdn,zone_format,view,ns_group,soa_email'
         self.host_header = 'header-hostrecord,addresses,configure_for_dns,fqdn,EA-DeviceType'
         self.cname_header = 'header-CnameRecord,fqdn,view,canonical_name,comment,EA-DeviceType'
         self.headers = { 'containers': self.container_header,
                          'networks': self.net_header,
                          'dhcp_ranges': self.dhcp_range_header,
+                         'nsg': self.nsg_header,
                          'auth_zones': self.zone_header,
                          'hosts': self.host_header,
                          'cnames': self.cname_header }
@@ -536,6 +539,9 @@ class DEMODATA(METADATA):
         nsg = self.name_server_group()
         zones = self.auth_zones()
         lines:list = []
+
+        # Gen NSG CSV
+        self.csv_sets.update({ 'nsg': f'nsgroup,{nsg},,TRUE'})
 
         for z in zones:
             lines.append(f'authzone,{z},FORWARD,{dns_view},{nsg},demo@infoblox.com')
