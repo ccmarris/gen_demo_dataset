@@ -341,15 +341,21 @@ class DEMODATA(METADATA):
         return self.headers.get(object_type)
 
 
-    def gen_data(self, base:str=''):
+    def gen_data(self, base:str='', to_file:bool=False, object_type:str=''):
         '''
         '''
+        self.gen_zones()
+        self.gen_hosts()
         if base:
             self.gen_networks(base=base)
         else:
             self.gen_networks()
-        self.gen_zones()
-        self.gen_hosts()
+        
+        if object:
+            self.output_csv(object_type=object_type, to_file=to_file)
+        else:
+            self.output_csv(to_file=to_file)
+
         return
     
 
@@ -520,7 +526,7 @@ class DEMODATA(METADATA):
         broadcast = subnet.broadcast_address
         start_ip = str(broadcast - (range_size + 1))
         end_ip = str(broadcast - 1)
-        logging.info(f"Creating Range start: {start_ip}, end: {end_ip}")
+        logging.debug(f"Creating Range start: {start_ip}, end: {end_ip}")
 
         range = f'DhcpRange,{start_ip},{end_ip}'
         
@@ -622,8 +628,7 @@ def main():
                  include_locations=True, 
                  include_networks=True, 
                  include_dhcp=True)
-    d.gen_data(base=args.base)
-    d.output_csv(object_type=args.object, to_file=args.file)
+    d.gen_data(base=args.base, object_type=args.object, to_file=args.file)
 
     return
 
