@@ -541,7 +541,7 @@ class DEMODATA(METADATA):
         lines:list = []
 
         # Gen NSG CSV
-        self.csv_sets.update({ 'nsg': f'nsgroup,{nsg},,TRUE'})
+        self.csv_sets.update({ 'nsg': [ f'nsgroup,{nsg},,TRUE' ] })
 
         for z in zones:
             lines.append(f'authzone,{z},FORWARD,{dns_view},{nsg},demo@infoblox.com')
