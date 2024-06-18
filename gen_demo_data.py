@@ -575,7 +575,7 @@ def parseargs():
     parse = argparse.ArgumentParser(description=description)
     parse.add_argument('-c', '--config', type=str, default='metadata.yaml',
                         help="Override config file")
-    parse.add_argument('-b', '--base', type=str, default='10.40.0.0/8',
+    parse.add_argument('-b', '--base', type=str, default='10.40.0.0/14',
                         help="Override config file")
     parse.add_argument('-f', '--file', action='store_true',
                         help='Output CSVs to file')
