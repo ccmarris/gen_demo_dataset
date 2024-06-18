@@ -94,9 +94,10 @@ class METADATA:
             ',EAInherited-Country,EA-Location,EAInherited-Location'
             ',EA-Department,EA-Billing,EA-SecurityZone,EA-VLAN' )
 
-        self.net_header = ( 'header-network,address*,netmask*,routers,disabled,enable_discovery'
-            ',EA-Region,EAInherited-Region,EA-Country,EAInherited-Country'
-            ',EA-Location,EAInherited-Location,EA-Department,EA-Billing')
+        self.net_header = ( 'header-network,address*,netmask*,routers,disabled,'
+            'auto_create_reversezone,enable_discovery,'
+            'EA-Region,EAInherited-Region,EA-Country,EAInherited-Country,'
+            'EA-Location,EAInherited-Location,EA-Department,EA-Billing')
 
         self.dhcp_range_header = 'header-DhcpRange,start_address,end_address'
         self.zone_header = 'header-authzone,fqdn,zone_format,view,ns_group,soa_email'
@@ -337,10 +338,13 @@ class DEMODATA(METADATA):
         return self.headers.get(object_type)
 
 
-    def gen_data(self):
+    def gen_data(self, base:str=''):
         '''
         '''
-        self.gen_networks()
+        if base:
+            self.gen_networks(base=base)
+        else:
+            self.gen_networks()
         self.gen_zones()
         self.gen_hosts()
         return
@@ -457,6 +461,7 @@ class DEMODATA(METADATA):
         networks:list = []
         dhcp_csv:list = []
         departments = self.departments()
+        reverse:str = 'FALSE'
 
         # Gen prefix
         prefix = int(subnet.prefixlen + math.sqrt(len(departments))+2)
@@ -469,8 +474,13 @@ class DEMODATA(METADATA):
             for dept in departments:
                 sub = ipaddress.ip_network(subnets[index])
                 gw = str(sub.network_address + 1)
+                # Auto create reverse zone flag
+                if sub.prefixlen == 24:
+                    reverse = 'TRUE'
+                else:
+                    reverse = 'FALSE'
                 networks.append(f'network,{sub.network_address.exploded},'
-                                f'{sub.netmask.exploded},{gw},FALSE,FALSE,,'
+                                f'{sub.netmask.exploded},{gw},FALSE,{reverse},FALSE,,'
                                 f'INHERIT,,INHERIT,,INHERIT,{dept},')
                 # Add networks if included
                 if self.include_dhcp:
@@ -559,6 +569,8 @@ def parseargs():
     parse = argparse.ArgumentParser(description=description)
     parse.add_argument('-c', '--config', type=str, default='metadata.yaml',
                         help="Override config file")
+    parse.add_argument('-b', '--base', type=str, default='10.40.0.0/8',
+                        help="Override config file")
     parse.add_argument('-f', '--file', action='store_true',
                         help='Output CSVs to file')
     parse.add_argument('-o', '--object', type=str, default='all',
@@ -604,7 +616,7 @@ def main():
                  include_locations=True, 
                  include_networks=True, 
                  include_dhcp=True)
-    d.gen_data()
+    d.gen_data(base=args.base)
     d.output_csv(object_type=args.object, to_file=args.file)
 
     return
