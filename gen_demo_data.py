@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/env python3
 #vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 """
 -----------------------------------------------------------------------
@@ -670,7 +670,7 @@ def parseargs():
     parse.add_argument('-c', '--config', type=str, default='metadata.yaml',
                         help="Override config file")
     parse.add_argument('-b', '--base', type=str, default='10.40.0.0/14',
-                        help="Override config file")
+                        help="Override default base network")
     parse.add_argument('-f', '--file', action='store_true',
                         help='Output CSVs to file')
     parse.add_argument('-o', '--object', type=str, default='all',
