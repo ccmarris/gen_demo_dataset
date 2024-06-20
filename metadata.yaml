@@ -4,6 +4,12 @@ config:
   nsg: internal
   auth_zones:
     - infoblox.test
+  zone_prefixes: 
+    - test
+    - zone
+    - bank
+    - demo
+    - infoblox
   cloud_providers:
     aws:
       zones:
@@ -26,12 +32,6 @@ metadata:
     - Device_Type
     - Org_Compartments
 
-  prefixes: 
-    - test
-    - zone
-    - bank
-    - demo
-    - infoblox
 
   # Region: Country: - Cities
   # EMEA: UK: - LON

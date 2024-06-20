@@ -50,7 +50,7 @@
 ----------------------------------------------------------------------
 """
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 __author__ = 'Chris Marrison'
 
 import logging
@@ -244,7 +244,8 @@ class DEMODATA(METADATA):
                  include_countries:bool = False,
                  include_locations:bool = False,
                  include_networks:bool = False,
-                 include_dhcp:bool = False):
+                 include_dhcp:bool = False,
+                 include_hosts:bool = False):
         '''
         '''
         super().__init__(metadata)
@@ -344,12 +345,13 @@ class DEMODATA(METADATA):
     def gen_data(self, base:str='', to_file:bool=False, object_type:str=''):
         '''
         '''
-        self.gen_zones()
-        self.gen_hosts()
         if base:
             self.gen_networks(base=base)
         else:
             self.gen_networks()
+        self.gen_zones()
+        self.gen_reverse()
+        self.gen_hosts()
         
         if object:
             self.output_csv(object_type=object_type, to_file=to_file)
@@ -363,6 +365,7 @@ class DEMODATA(METADATA):
                        base:str = '10.40.0.0/14'):
         '''
         '''
+        self.base_network = base
         container_csv:list = []
         regions = self.regions()
         base_block = ipaddress.ip_network(base)
@@ -442,22 +445,28 @@ class DEMODATA(METADATA):
         locations = self.locations(country=country)
         # Create block per country 
         prefix = int(subnet.prefixlen + math.sqrt(len(locations))+2)
-        blocks = list(subnet.subnets(new_prefix=prefix))
-        if len(locations) < len(blocks):
-            index = 0
-            for location in locations:
-                sub = ipaddress.ip_network(blocks[index])
-                container_csv.append(f'networkcontainer,{sub.network_address.exploded},'
-                                     f'{sub.prefixlen},default,,'
-                    f'INHERIT,,INHERIT,{location},OVERRIDE,,No,,')
-                # Add networks if included
-                if self.include_networks:
-                    self.create_networks(subnet=sub, location=country)
-                index += 1
+        if prefix < 29:
+            blocks = list(subnet.subnets(new_prefix=prefix))
+            if len(locations) < len(blocks):
+                index = 0
+                for location in locations:
+                    sub = ipaddress.ip_network(blocks[index])
+                    container_csv.append(f'networkcontainer,{sub.network_address.exploded},'
+                                        f'{sub.prefixlen},default,,'
+                        f'INHERIT,,INHERIT,{location},OVERRIDE,,No,,')
+                    # Add networks if included
+                    if self.include_networks:
+                        self.create_networks(subnet=sub, location=country)
+                    index += 1
+                    # Check for out of bounds
+                    if index > len(blocks):
+                        break
 
+            else:
+                logging.error(f'subnet {subnet} cannot be subnetted in'
+                            f'to {len(locations)} countries.')
         else:
-            logging.error(f'subnet {subnet} cannot be subnetted in'
-                        f'to {len(locations)} countries.')
+            logging.debug('Prefix too small - unable to create location blocks')
 
         return container_csv
 
@@ -476,7 +485,14 @@ class DEMODATA(METADATA):
         prefix = int(subnet.prefixlen + math.sqrt(len(departments))+2)
         # Don't create networks larger that /24
         if prefix < 24:
+            logging.debug('Adjusting prefix for networks to /24')
             prefix = 24
+        elif prefix > 30:
+            logging.debug('Adjusting prefix for networks to /30')
+            prefix = 30
+        else:
+            logging.debug(f'Prefix for networks set to /{prefix}')
+        
         subnets = list(subnet.subnets(new_prefix=prefix))
         if len(departments) < len(subnets):
             index = 0
@@ -488,6 +504,7 @@ class DEMODATA(METADATA):
                     reverse = 'TRUE'
                 else:
                     reverse = 'FALSE'
+                # Gen network CSV
                 networks.append(f'network,{sub.network_address.exploded},'
                                 f'{sub.netmask.exploded},{gw},FALSE,{reverse},FALSE,,'
                                 f'INHERIT,,INHERIT,,INHERIT,{dept},')
@@ -495,10 +512,13 @@ class DEMODATA(METADATA):
                 if self.include_dhcp:
                     dhcp_csv.append(self.dhcp_range(subnet=sub))
                 index += 1
+                # Check for out of bounds
+                if index > len(subnets):
+                    break
 
         else:
             logging.error(f'subnet {subnet} cannot be subnetted in'
-                        f'to {len(self.departments)} countries.')
+                          f'to {len(self.departments())} countries.')
         
         # Update csv_sets
         if networks:
@@ -547,16 +567,72 @@ class DEMODATA(METADATA):
         lines:list = []
 
         # Gen NSG CSV
-        self.csv_sets.update({ 'nsg': [ f'nsgroup,{nsg},,TRUE' ] })
+        self.csv_sets.update({ 'nsg': [ f'nsgroup,{nsg},,,TRUE' ] })
 
         for z in zones:
             lines.append(f'authzone,{z},FORWARD,{dns_view},{nsg},demo@infoblox.com')
         
-        if lines:
+        if self.csv_sets.get('auth_zones'):
+            self.csv_sets['auth_zones'].extend(lines)
+        else:
             self.csv_sets.update({'auth_zones': lines })
 
         return lines
     
+
+    def gen_reverse(self, prefix:int = 16, base:str = ''):
+        '''
+        '''
+        lines:list = []
+        subnets:list = []
+        dns_view = self.dns_view()
+        nsg = self.name_server_group()
+        supported_prefixes = [ 8, 16, 24 ]
+
+        if prefix not in supported_prefixes:
+            if prefix > 8 and prefix < 16:
+                prefix = 8
+                logging.warning(f'Adjusting prefix to /{prefix}')
+            elif prefix > 16 and prefix < 24:
+                prefix = 16
+                logging.warning(f'Adjusting prefix to /{prefix}')
+            elif prefix > 24:
+                prefix = 24
+                logging.warning(f'Adjusting prefix to /{prefix}')
+            else:
+                # Adjusting to default /16
+                prefix = 16
+                logging.warning(f'Adjusting prefix to default /{prefix}')
+
+        # Check for base network
+        if base:
+            self.base_network = base
+
+        if self.base_network:
+            net = ipaddress.ip_network(self.base_network)
+            if net.prefixlen == prefix:
+                # Just create reverse for prefix
+                lines.append(f'authzone,{net.exploded},IPv4,{dns_view},{nsg},demo@infoblox.com')
+            elif net.prefixlen > prefix:
+                rnet = net.supernet(new_prefix=prefix)
+                lines.append(f'authzone,{rnet.exploded},IPv4,{dns_view},{nsg},demo@infoblox.com')
+            else:
+                subnets = list(net.subnets(new_prefix=prefix))
+                for net in subnets:
+                    lines.append(f'authzone,{net.exploded},IPv4,{dns_view},{nsg},demo@infoblox.com')
+
+        else:
+            logging.error('Base network not set. (Either call gen_networks,'
+                          ' or set base parameter)')
+        
+        if self.csv_sets.get('auth_zones'):
+            self.csv_sets['auth_zones'].extend(lines)
+        else:
+            self.csv_sets.update({'auth_zones': lines })
+
+        return lines
+        
+        
 
     def gen_hosts(self, 
                   zone:str='infoblox.test', 
