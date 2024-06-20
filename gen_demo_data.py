@@ -680,7 +680,7 @@ def parseargs():
     parse = argparse.ArgumentParser(description=description)
     parse.add_argument('-c', '--config', type=str, default='metadata.yaml',
                         help="Override config file")
-    parse.add_argument('-b', '--base', type=str, default='10.40.0.0/14',
+    parse.add_argument('-b', '--base', type=str,
                         help="Override default base network")
     parse.add_argument('-f', '--file', action='store_true',
                         help='Output CSVs to file')
@@ -727,7 +727,10 @@ def main():
                  include_locations=True, 
                  include_networks=True, 
                  include_dhcp=True)
-    d.gen_data(base=args.base, object_type=args.object, to_file=args.file)
+    if args.base:
+        d.gen_data(base=args.base, object_type=args.object, to_file=args.file)
+    else:
+        d.gen_data(object_type=args.object, to_file=args.file)
 
     return
 
