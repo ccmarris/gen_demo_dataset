@@ -1,14 +1,16 @@
 ---
 config:
-  dns_view: Internal DNS
+  dns_view: default
+  network_view: default
   nsg: internal
   auth_zones:
-    - infoblox.test
-  zone_prefixes: 
-    - test
-    - zone
-    - bank
-    - demo
+    - infoblox.internal
+    - dev.internal
+    - aws.internal
+  sub_domains: 
+    - nios
+    - ddi
+    - ad
     - infoblox
   cloud_providers:
     aws:

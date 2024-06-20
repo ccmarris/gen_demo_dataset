@@ -195,6 +195,12 @@ class METADATA:
         return self.config.get('dns_view')
 
 
+    def network_view(self):
+        '''
+        '''
+        return self.config.get('network_view')
+
+
     def name_server_group(self):
         '''
         '''
@@ -205,6 +211,12 @@ class METADATA:
         '''
         '''
         return self.config.get('auth_zones')
+
+
+    def sub_domains(self):
+        '''
+        '''
+        return self.config.get('sub_domains')
 
 
     def cloud_providers(self):
