@@ -77,6 +77,7 @@ class METADATA:
                 data = yaml.safe_load(f)
                 self.metadata = data.get('metadata')
                 self.config = data.get('config')
+                self.base_network = self.get_base_network()
         except FileNotFoundError:
             logging.error(f'Metadata file {cfg} not found')
             raise
@@ -199,6 +200,12 @@ class METADATA:
         '''
         '''
         return self.config.get('network_view')
+
+
+    def get_base_network(self):
+        '''
+        '''
+        return self.config.get('base_network')
 
 
     def name_server_group(self):
@@ -374,10 +381,14 @@ class DEMODATA(METADATA):
     
 
     def gen_networks(self, 
-                       base:str = '10.40.0.0/14'):
+                       base:str = ''):
         '''
         '''
-        self.base_network = base
+        if base:
+            self.base_network = base
+        else:
+            base = self.base_network
+
         container_csv:list = []
         regions = self.regions()
         base_block = ipaddress.ip_network(base)

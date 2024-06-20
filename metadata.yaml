@@ -2,6 +2,7 @@
 config:
   dns_view: default
   network_view: default
+  base_network: 10.40.0.0/14
   nsg: internal
   auth_zones:
     - infoblox.internal
